@@ -9,7 +9,7 @@ COPY . /app
 
 # Install FastAPI and Uvicorn
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install fastapi uvicorn python-multipart
+    pip install fastapi uvicorn python-multipart jinja2
 
 # Expose the port FastAPI will run on
 EXPOSE 8000
