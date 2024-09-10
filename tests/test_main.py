@@ -1,5 +1,5 @@
 from fastapi.testclient import TestClient
- from backend.main import app # Adjust the path if `main.py` is in a different directory
+from backend.main import app  # Adjust the path if `main.py` is in a different directory
 
 client = TestClient(app)
 
