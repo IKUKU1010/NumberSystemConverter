@@ -1,114 +1,96 @@
 from fastapi import FastAPI, Form
 from fastapi.responses import HTMLResponse
+from jinja2 import Template
 
 app = FastAPI()
 
-@app.post("/convert")
-async def convert_number(decimal_number: int = Form(...)):
-    binary = bin(decimal_number)[2:]  # Remove '0b'
-    octal = oct(decimal_number)[2:]    # Remove '0o'
-    hexadecimal = hex(decimal_number)[2:].upper()  # Remove '0x'
-
-    return {
-        "binary": binary,
-        "octal": octal,
-        "hexadecimal": hexadecimal
-    }
-
 @app.get("/", response_class=HTMLResponse)
-async def home():
-    html_content = """
-    <html>
-        <head>
-            <title>Decimal Converter</title>
-            <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    margin: 0;
-                    padding: 20px;
-                    background-color: #f0f4f8;
-                }
-                .container {
-                    max-width: 500px;
-                    margin: auto;
-                    background: #fff;
-                    padding: 20px;
-                    border-radius: 8px;
-                    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-                }
-                h1 {
-                    text-align: center;
-                    color: #333;
-                }
-                label, input, button {
-                    display: block;
-                    width: 100%;
-                    margin-bottom: 10px;
-                }
-                input {
-                    padding: 10px;
-                    font-size: 16px;
-                    border: 1px solid #ccc;
-                    border-radius: 4px;
-                }
-                button {
-                    padding: 10px;
-                    font-size: 16px;
-                    background-color: #007bff;
-                    color: white;
-                    border: none;
-                    border-radius: 4px;
-                    cursor: pointer;
-                }
-                button:hover {
-                    background-color: #0056b3;
-                }
-                .result {
-                    margin-top: 20px;
-                }
-                .result p {
-                    background: #e1f7d5;
-                    padding: 10px;
-                    border-radius: 4px;
-                }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h1>Decimal Converter</h1>
-                <form id="converter-form">
-                    <label for="decimal_number">Enter a Decimal Number:</label>
-                    <input type="number" id="decimal_number" name="decimal_number" required>
-                    <button type="submit">Convert</button>
-                </form>
-                <div class="result" id="result-container"></div>
-            </div>
+async def index():
+    template = Template(html_template)
+    return template.render(result=None)
 
-            <script>
-                document.getElementById('converter-form').addEventListener('submit', async function(event) {
-                    event.preventDefault();
-                    const decimalNumber = document.getElementById('decimal_number').value;
+@app.post("/", response_class=HTMLResponse)
+async def convert_number(
+    number: str = Form(...),
+    base: str = Form(...),
+    to_base: str = Form(...)
+):
+    try:
+        number = number.lower()  # Handle case sensitivity for hexadecimal input
 
-                    // Fetch conversion results
-                    const response = await fetch('/convert', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                        },
-                        body: new URLSearchParams({ decimal_number: decimalNumber })
-                    });
+        # Validate the input based on the selected base
+        if base == "octal" and not all(c in '01234567' for c in number):
+            raise ValueError("Invalid octal number")
+        if base == "hex" and not all(c in '0123456789abcdef' for c in number):
+            raise ValueError("Invalid hexadecimal number")
 
-                    const result = await response.json();
+        # Convert the input number to decimal first
+        if base == "decimal":
+            decimal_value = int(number)
+        elif base == "octal":
+            decimal_value = int(number, 8)
+        elif base == "hex":
+            decimal_value = int(number, 16)
+        else:
+            raise ValueError("Unsupported base")
 
-                    // Display results
-                    document.getElementById('result-container').innerHTML = `
-                        <p><strong>Binary:</strong> ${result.binary}</p>
-                        <p><strong>Octal:</strong> ${result.octal}</p>
-                        <p><strong>Hexadecimal:</strong> ${result.hexadecimal}</p>
-                    `;
-                });
-            </script>
-        </body>
-    </html>
-    """
-    return html_content
+        # Convert the decimal value to the desired base
+        if to_base == "binary":
+            result = bin(decimal_value)[2:]
+        elif to_base == "octal":
+            result = oct(decimal_value)[2:]
+        elif to_base == "decimal":
+            result = str(decimal_value)
+        elif to_base == "hex":
+            result = hex(decimal_value)[2:]
+        else:
+            raise ValueError("Unsupported target base")
+
+    except ValueError as e:
+        result = f"Error: {str(e)}"
+
+    template = Template(html_template)
+    return template.render(result=result)
+
+# Simplified HTML template
+html_template = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Number Base Converter</title>
+</head>
+<body>
+    <h2>Number Base Converter</h2>
+    <form method="post">
+        <label for="number">Number:</label>
+        <input type="text" id="number" name="number" required placeholder="Enter your number"><br>
+
+        <label for="base">Convert From:</label>
+        <select id="base" name="base" required>
+            <option value="decimal">Decimal</option>
+            <option value="octal">Octal</option>
+            <option value="hex">Hexadecimal</option>
+        </select><br>
+
+        <label for="to_base">Convert To:</label>
+        <select id="to_base" name="to_base" required>
+            <option value="binary">Binary</option>
+            <option value="octal">Octal</option>
+            <option value="decimal">Decimal</option>
+            <option value="hex">Hexadecimal</option>
+        </select><br>
+
+        <input type="submit" value="Convert">
+    </form>
+
+    {% if result %}
+    <div>
+        <h3>Conversion Result:</h3>
+        <p>{{ result }}</p>
+    </div>
+    {% endif %}
+</body>
+</html>
+"""
